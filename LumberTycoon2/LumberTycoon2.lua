@@ -5,6 +5,66 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
 local HRP = Player.Character:WaitForChild("HumanoidRootPart")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ClientIsDragging = ReplicatedStorage.Interaction.ClientIsDragging
+local AxeClasses = ReplicatedStorage.AxeClasses
+local chopRemote = ReplicatedStorage.Interaction.RemoteProxy
+
+local function getAxeStats(Name)
+local AxeStats = require(AxeClasses:FindFirstChild("AxeClass_"..Name)).new()
+return AxeStats
+end
+
+local function grabTree(Tree)
+print("Grab Tree...")
+local OrgPlayerPos = HRP.CFrame
+local args = {
+    [1] = Tree
+}
+
+Tree.PrimaryPart = Tree.WoodSection
+HRP.CFrame = Tree.PrimaryPart.CFrame
+for i = 1,100 do
+ClientIsDragging:FireServer(unpack(args))
+task.wait()
+end
+
+task.wait(0.1)
+for i = 1,60 do
+    Tree.PrimaryPart.Velocity = Vector3.new(0, 0, 0)
+    Tree:PivotTo(OrgPlayerPos + Vector3.new(0,20,0))
+    task.wait() 
+end
+HRP.CFrame = OrgPlayerPos + Vector3.new(0,20,0)
+
+end
+
+local function chopTree(Tree)
+local axeStats = getAxeStats(Players.LocalPlayer.ToolFolder.Tool.Value)
+local args = 
+{
+    [1] = 
+    Tree.CutEvent,
+    [2] = 
+    {
+    tool = Players.LocalPlayer.ToolFolder.Tool,
+    height = 0.3,
+    faceVector = Vector3.new(1, 0, 0),
+    sectionId = 1,
+    hitPoints = axeStats.Damage,
+    cooldown = axeStats.SwingCooldown,
+    cuttingClass = "Axe"
+    }
+}
+HRP.CFrame = Tree.WoodSection.CFrame
+repeat
+chopRemote:FireServer(unpack(args))
+task.wait(axeStats.SwingCooldown)
+print("Trying"..axeStats.SwingCooldown)
+until Tree == nil
+
+end
+
 local function initTreeGUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "TreeRegionGUI"
@@ -121,6 +181,7 @@ local function RenameTreeRegions()
         end
     end
     initTreeGUI()
+    chopTree(Workspace.Birch.Model)
 end
 RenameTreeRegions()
 
