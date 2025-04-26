@@ -16,23 +16,29 @@ return AxeStats
 end
 
 local function isMyTree(TreeType, child) -- ?
-if tostring(child:WaitForChild("Owner").Value) == Player.Name then return true
+if tostring(child:WaitForChild("Owner").Value) == Player.Name then 
+return true
 
-else return false
+else 
+    --debug
+    print(tostring(child:WaitForChild("Owner").Value), Player.Name)
+    print(#(tostring(child:WaitForChild("Owner").Value)), #(Player.Name))
+return false
 end
 end
-local function filterThroughWoodSection(Tree)
-    local biggestWoodSec = nil
-    local biggestWoodSize = 0
+
+local function getLowestWoodSec(Tree)
+local lowestWoodSecObject = nil
+local lowestWoodSecY = math.huge
     for _,v in pairs(Tree:GetChildren()) do
         if v.Name == "WoodSection" then
-            if v.Size > biggestWoodSize then
-                biggestWoodSec = v
-                biggestWoodSize = v.Size
+            if v.Position.Y < lowestWoodSecY then
+                lowestWoodSecObject = v
+                lowestWoodSecY = v.Position.Y
             end
         end
     end
-    return biggestWoodSec
+    return lowestWoodSecObject
 end
 
 local function grabTree(Tree,OrgPlayerPos)
@@ -83,7 +89,7 @@ local args =
     }
 }
 
-HRP.CFrame = Tree.WoodSection.CFrame
+HRP.CFrame = getLowestWoodSec(Tree).CFrame + Vector3.new(0,3,0)
 
 
 local connection
