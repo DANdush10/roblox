@@ -6,14 +6,14 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
 local HRP = Player.Character:WaitForChild("HumanoidRootPart")
--- "database" for axe stats
-local AxeClasses = ReplicatedStorage.AxeClasses
 -- remotes
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClientIsDragging = ReplicatedStorage.Interaction.ClientIsDragging
 local chopRemote = ReplicatedStorage.Interaction.RemoteProxy
 -- changes, basically just a global variable that needs to be accessed from some spots
 local LooseTreeModel = nil
+-- "database" for axe stats
+local AxeClasses = ReplicatedStorage.AxeClasses
 
 -- gets the axe's stats by using the moduleScript inside axeclasses
 local function getAxeStats(Name)
@@ -22,6 +22,18 @@ local function getAxeStats(Name)
 
     return AxeStats
 
+end
+
+local function getTreeSize(Tree)
+    local totalVolume = 0
+    for _,v in pairs(Tree:GetChildren()) do
+        if v.Name == "WoodSection" then
+            local size = v.Size
+            local volume = size.X * size.Y * size.Z
+            totalVolume += volume
+        end
+    end
+    return totalVolume
 end
 
 local function isMyTree(TreeType, child) -- ?
@@ -76,7 +88,7 @@ local function grabTree(Tree,OrgPlayerPos)
     task.wait(0.1)
     for i = 1,60 do
         Tree.PrimaryPart.Velocity = Vector3.new(0, 0, 0)
-        ree:PivotTo(OrgPlayerPos + Vector3.new(0,20,0))
+        Tree:PivotTo(OrgPlayerPos + Vector3.new(0,20,0))
         task.wait() 
     end
     HRP.CFrame = OrgPlayerPos + Vector3.new(0,20,0)
@@ -139,18 +151,16 @@ local function getTree(Tree)
 
 end
 
-
-local function initTreeGUI()
-
+local function initRegionGUI(Region)
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "TreeRegionGUI"
+    screenGui.Name = "RegionDetailGUI"
     screenGui.ResetOnSpawn = false
     screenGui.Parent = PlayerGui
 
     -- Main frame
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 300, 0, 400)
-    mainFrame.Position = UDim2.new(0, 20, 0.5, -200)
+    mainFrame.Size = UDim2.new(0, 400, 0, 500)
+    mainFrame.Position = UDim2.new(0, 550, 0, 100)
     mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
@@ -161,29 +171,33 @@ local function initTreeGUI()
     corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = mainFrame
 
-    -- Collapse button
-    local collapseBtn = Instance.new("TextButton")
-    collapseBtn.Size = UDim2.new(0, 24, 0, 24)
-    collapseBtn.Position = UDim2.new(1, -28, 0, 4)
-    collapseBtn.Text = "◀"
-    collapseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    collapseBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    collapseBtn.Font = Enum.Font.GothamBold
-    collapseBtn.TextSize = 16
-    collapseBtn.Parent = mainFrame
+    -- X button to close the GUI
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 24, 0, 24)
+    closeButton.Position = UDim2.new(1, -28, 0, 4)
+    closeButton.Text = "X"
+    closeButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+    closeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 16
+    closeButton.Parent = mainFrame
 
-    local collapseCorner = Instance.new("UICorner")
-    collapseCorner.CornerRadius = UDim.new(1, 0)
-    collapseCorner.Parent = collapseBtn
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(1, 0)
+    closeCorner.Parent = closeButton
 
-    -- ScrollFrame for buttons
+    closeButton.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+
+    -- ScrollFrame for tree list
     local scrollFrame = Instance.new("ScrollingFrame")
     scrollFrame.Size = UDim2.new(1, -20, 1, -20)
     scrollFrame.Position = UDim2.new(0, 10, 0, 10)
     scrollFrame.BackgroundTransparency = 1
     scrollFrame.BorderSizePixel = 0
     scrollFrame.ScrollBarThickness = 6
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0) -- Will be updated later
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     scrollFrame.Parent = mainFrame
 
@@ -192,7 +206,135 @@ local function initTreeGUI()
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = scrollFrame
 
-    -- Add region buttons
+    -- For each tree in Region
+    for _, v in ipairs(Region:GetChildren()) do
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1, 0, 0, 40)
+        button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        button.Text = ""
+        button.TextColor3 = Color3.fromRGB(230, 230, 230)
+        button.Font = Enum.Font.Arial
+        button.TextSize = 16
+        button.AutoButtonColor = false
+        button.Parent = scrollFrame
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 10)
+        btnCorner.Parent = button
+
+        -- Label for Tree Name
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+        nameLabel.Position = UDim2.new(0, 10, 0, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+        nameLabel.Font = Enum.Font.Arial
+        nameLabel.TextSize = 16
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.Text = v.Name
+        nameLabel.Parent = button
+
+        -- Label for Tree Size
+        local sizeLabel = Instance.new("TextLabel")
+        sizeLabel.Size = UDim2.new(0.3, 0, 1, 0)
+        sizeLabel.Position = UDim2.new(0.65, 0, 0, 0)
+        sizeLabel.BackgroundTransparency = 1
+        sizeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        sizeLabel.Font = Enum.Font.Arial
+        sizeLabel.TextSize = 16
+        sizeLabel.TextXAlignment = Enum.TextXAlignment.Right
+        sizeLabel.Text = tostring(getTreeSize(v))
+        sizeLabel.Parent = button
+
+        -- Hover effect
+        button.MouseEnter:Connect(function()
+            button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        end)
+        button.MouseLeave:Connect(function()
+            button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        end)
+
+        button.MouseButton1Click:Connect(function()
+            local OrgPlayerPos = HRP.CFrame
+            getTree(v, OrgPlayerPos)
+        end)
+    end
+
+    -- Update scroll canvas size
+    task.wait()
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+end
+
+
+local function initTreeGUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "TreeRegionGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = PlayerGui
+
+    -- Main Menu Frame (always visible)
+    local menuFrame = Instance.new("Frame")
+    menuFrame.Size = UDim2.new(0, 150, 0, 80)
+    menuFrame.Position = UDim2.new(0, 20, 0, 20)
+    menuFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    menuFrame.BorderSizePixel = 0
+    menuFrame.Active = true
+    menuFrame.Draggable = true
+    menuFrame.Parent = screenGui
+
+    local menuCorner = Instance.new("UICorner")
+    menuCorner.CornerRadius = UDim.new(0, 12)
+    menuCorner.Parent = menuFrame
+
+    -- "Grab Trees" Button inside the menu
+    local grabTreesButton = Instance.new("TextButton")
+    grabTreesButton.Size = UDim2.new(1, -20, 0, 40)
+    grabTreesButton.Position = UDim2.new(0, 10, 0, 20)
+    grabTreesButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    grabTreesButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+    grabTreesButton.Font = Enum.Font.GothamBold
+    grabTreesButton.TextSize = 18
+    grabTreesButton.Text = "Grab Trees"
+    grabTreesButton.AutoButtonColor = false
+    grabTreesButton.Parent = menuFrame
+
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 8)
+    buttonCorner.Parent = grabTreesButton
+
+    -- === TREE REGION GUI (hidden at first) ===
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 300, 0, 400)
+    mainFrame.Position = UDim2.new(0, 200, 0, 100)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Visible = false
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = mainFrame
+
+    -- ScrollFrame for region buttons
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, -20, 1, -20)
+    scrollFrame.Position = UDim2.new(0, 10, 0, 10)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.ScrollBarThickness = 6
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrollFrame.Parent = mainFrame
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 8)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = scrollFrame
+
+    -- Region buttons
     for _, region in pairs(TreeRegions) do
         local button = Instance.new("TextButton")
         button.Size = UDim2.new(1, 0, 0, 40)
@@ -208,7 +350,6 @@ local function initTreeGUI()
         btnCorner.CornerRadius = UDim.new(0, 10)
         btnCorner.Parent = button
 
-        -- Hover effect
         button.MouseEnter:Connect(function()
             button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         end)
@@ -216,32 +357,26 @@ local function initTreeGUI()
             button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         end)
 
-        -- Click handler (custom logic placeholder)
         button.MouseButton1Click:Connect(function()
-            local Tree = region:FindFirstChild("Model")
-            getTree(Tree)
+            local Trees = region:GetChildren()
+            for _,v in pairs(Trees) do
+                v.Name = v.TreeClass.Value
+            end
+            initRegionGUI(region)   
         end)
     end
 
-    -- Update scroll canvas size properly
-    task.wait() -- ensure layout has been calculated
+    -- Update canvas size after layout
+    task.wait()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 
-    -- Collapse toggle logic
-    local collapsed = false
-    collapseBtn.MouseButton1Click:Connect(function()
-        collapsed = not collapsed
-        if collapsed then
-            scrollFrame.Visible = false
-            mainFrame.Size = UDim2.new(0, 40, 0, 40)
-            collapseBtn.Text = "▶"
-        else
-            scrollFrame.Visible = true
-            mainFrame.Size = UDim2.new(0, 300, 0, 400)
-            collapseBtn.Text = "◀"
-        end
+    -- Grab Trees button opens the Tree GUI
+    grabTreesButton.MouseButton1Click:Connect(function()
+        mainFrame.Visible = not mainFrame.Visible
     end)
 end
+
+
 
 
 
