@@ -1,124 +1,147 @@
 local Workspace = game:GetService("Workspace")
 local TreeRegions = {}
+-- player stuff
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local UserInputService = game:GetService("UserInputService")
 local HRP = Player.Character:WaitForChild("HumanoidRootPart")
+-- "database" for axe stats
+local AxeClasses = ReplicatedStorage.AxeClasses
+-- remotes
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClientIsDragging = ReplicatedStorage.Interaction.ClientIsDragging
-local AxeClasses = ReplicatedStorage.AxeClasses
 local chopRemote = ReplicatedStorage.Interaction.RemoteProxy
+-- changes, basically just a global variable that needs to be accessed from some spots
 local LooseTreeModel = nil
+
+-- gets the axe's stats by using the moduleScript inside axeclasses
 local function getAxeStats(Name)
-local AxeStats = require(AxeClasses:FindFirstChild("AxeClass_"..Name)).new()
-return AxeStats
+
+    local AxeStats = require(AxeClasses:FindFirstChild("AxeClass_"..Name)).new()
+
+    return AxeStats
+
 end
 
 local function isMyTree(TreeType, child) -- ?
-if tostring(child:WaitForChild("Owner").Value) == Player.Name then 
-return true
 
-else 
-    --debug
-    print(tostring(child:WaitForChild("Owner").Value), Player.Name)
-    print(#(tostring(child:WaitForChild("Owner").Value)), #(Player.Name))
-return false
-end
+    if tostring(child:WaitForChild("Owner").Value) == Player.Name then 
+
+        return true
+
+    else 
+        --debug
+        print(tostring(child:WaitForChild("Owner").Value), Player.Name)
+        print(#(tostring(child:WaitForChild("Owner").Value)), #(Player.Name))
+
+        return false
+    end
+
 end
 
 local function getLowestWoodSec(Tree)
-local lowestWoodSecObject = nil
-local lowestWoodSecY = math.huge
+
+    local lowestWoodSecObject = nil
+    local lowestWoodSecY = math.huge
     for _,v in pairs(Tree:GetChildren()) do
         if v.Name == "WoodSection" then
             if v.Position.Y < lowestWoodSecY then
                 lowestWoodSecObject = v
                 lowestWoodSecY = v.Position.Y
             end
+
         end
+
     end
+
     return lowestWoodSecObject
+
 end
 
 local function grabTree(Tree,OrgPlayerPos)
-print("Grabbing Tree...")
-local args = 
-{
-    [1] = Tree
-}
 
-Tree.PrimaryPart = Tree:WaitForChild("WoodSection")
-HRP.CFrame = Tree.PrimaryPart.CFrame
-for i = 1,100 do
-ClientIsDragging:FireServer(unpack(args))
-task.wait()
-end
+    print("Grabbing Tree...")
+    local args = 
+    {
+        [1] = Tree
+    }
+    Tree.PrimaryPart = Tree:WaitForChild("WoodSection")
+    HRP.CFrame = Tree.PrimaryPart.CFrame
+    for i = 1,100 do
+        ClientIsDragging:FireServer(unpack(args))
+        task.wait()
+    end
 
-task.wait(0.1)
-for i = 1,60 do
-    Tree.PrimaryPart.Velocity = Vector3.new(0, 0, 0)
-    Tree:PivotTo(OrgPlayerPos + Vector3.new(0,20,0))
-    task.wait() 
-end
-HRP.CFrame = OrgPlayerPos + Vector3.new(0,20,0)
+    task.wait(0.1)
+    for i = 1,60 do
+        Tree.PrimaryPart.Velocity = Vector3.new(0, 0, 0)
+        ree:PivotTo(OrgPlayerPos + Vector3.new(0,20,0))
+        task.wait() 
+    end
+    HRP.CFrame = OrgPlayerPos + Vector3.new(0,20,0)
 
 end
 
 local function chopTree(Tree, OrgPlayerPos)
+
     local Tool = Player.Backpack:FindFirstChild("Tool")
     if Tool then
-    Tool.Parent = Player.Character
+        Tool.Parent = Player.Character
     else
-    print("Tool Not Found")
+        print("Tool Not Found")
     end
-local axeStats = getAxeStats(Player.Character.Tool:WaitForChild("ToolName").Value)
-local args = 
-{
-    [1] = 
-    Tree.CutEvent,
-    [2] = 
+    local axeStats = getAxeStats(Player.Character.Tool:WaitForChild("ToolName").Value)
+    local args = 
     {
-    ["tool"] = Player.Character.Tool,
-    ["height"] = 0.3,
-    ["faceVector"] = Vector3.new(1, 0, 0),
-    ["sectionId"] = 1,
-    ["hitPoints"] = axeStats.Damage,
-    ["cooldown"] = axeStats.SwingCooldown,
-    ["cuttingClass"] = "Axe"
+        [1] = 
+        Tree.CutEvent,
+        [2] = 
+        {
+        ["tool"] = Player.Character.Tool,
+        ["height"] = 0.3,
+        ["faceVector"] = Vector3.new(1, 0, 0),
+        ["sectionId"] = 1,
+        ["hitPoints"] = axeStats.Damage,
+        ["cooldown"] = axeStats.SwingCooldown,
+        ["cuttingClass"] = "Axe"
+        }
     }
-}
 
-HRP.CFrame = getLowestWoodSec(Tree).CFrame + Vector3.new(0,3,0)
+    HRP.CFrame = getLowestWoodSec(Tree).CFrame + Vector3.new(0,3,0)
 
 
-local connection
-connection = Workspace.LogModels.ChildAdded:Connect(function(child)
-    if isMyTree(Tree, child) then
-        print(" Tree Found!")
-        LooseTreeModel = child
-        grabTree(LooseTreeModel, OrgPlayerPos)
-        connection:Disconnect()
-    else
-        print("Not My tree :(")
-    end
-end)
-repeat
+    local connection
+    connection = Workspace.LogModels.ChildAdded:Connect(function(child)
+        if isMyTree(Tree, child) then
+            print(" Tree Found!")
+            LooseTreeModel = child
+            grabTree(LooseTreeModel, OrgPlayerPos)
+            connection:Disconnect()
+        else
+            print("Not My tree :(")
+        end
+    end)
+    repeat
 
-chopRemote:FireServer(unpack(args))
-task.wait(axeStats.SwingCooldown)
+        chopRemote:FireServer(unpack(args))
+        task.wait(axeStats.SwingCooldown)
 
-until not(Tree:FindFirstChild("CutEvent"))
+    until not(Tree:FindFirstChild("CutEvent"))
+
 end
 
 
 local function getTree(Tree)
+
     local OrgPlayerPos = HRP.CFrame
     chopTree(Tree,OrgPlayerPos)
+
 end
 
 
 local function initTreeGUI()
+
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "TreeRegionGUI"
     screenGui.ResetOnSpawn = false
@@ -223,6 +246,7 @@ end
 
 
 local function RenameTreeRegions()
+
     for i,v in pairs(Workspace:GetChildren()) do
         if v.Name == "TreeRegion" then
             if v:FindFirstChild("Model") then
@@ -231,9 +255,15 @@ local function RenameTreeRegions()
                     table.insert(TreeRegions, v)
             
                 end
+
             end
+
         end
+
     end
+
     initTreeGUI()
+
 end
+
 RenameTreeRegions()
