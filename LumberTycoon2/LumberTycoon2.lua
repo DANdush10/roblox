@@ -67,9 +67,12 @@ local function getLowestWoodSec(Tree)
         end
 
     end
-
+    if lowestWoodSecObject then
     return lowestWoodSecObject
-
+    else
+        print("lowest wood sec not found")
+        return nil
+    end
 end
 
 local function grabTree(Tree,OrgPlayerPos)
@@ -79,7 +82,7 @@ local function grabTree(Tree,OrgPlayerPos)
     {
         [1] = Tree
     }
-    Tree.PrimaryPart = Tree:WaitForChild("WoodSection")
+    Tree.PrimaryPart = getLowestWoodSec(Tree)
     HRP.CFrame = Tree.PrimaryPart.CFrame
     for i = 1,100 do
         ClientIsDragging:FireServer(unpack(args))
@@ -129,6 +132,7 @@ local function chopTree(Tree, OrgPlayerPos)
         if isMyTree(Tree, child) then
             print(" Tree Found!")
             LooseTreeModel = child
+            task.wait()
             grabTree(LooseTreeModel, OrgPlayerPos)
             connection:Disconnect()
         else
