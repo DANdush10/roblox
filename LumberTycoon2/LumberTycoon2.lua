@@ -1,10 +1,8 @@
 local Workspace = game:GetService("Workspace")
-local TreeRegions = {}
 -- player stuff
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
-local UserInputService = game:GetService("UserInputService")
 local HRP = Player.Character:WaitForChild("HumanoidRootPart")
 -- remotes
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +14,8 @@ local LooseTreeModel = nil
 local AxeClasses = ReplicatedStorage.AxeClasses
 --for the gui, i wanna update it so instead of tree regions(like biomes) its tree types
 local TreeDictionary = {}
+-- spawn location reference
+local spawn = Workspace:FindFirstChild("Region_Main"):FindFirstChild("SpawnLocation")
 -- gets the axe's stats by using the moduleScript inside axeclasses
 local function getAxeStats(Name)
 
@@ -156,6 +156,123 @@ local function getTree(Tree)
 
 end
 
+local function getPlayerBases()
+    local PlayerBasesDict = {}
+    for _,v in pairs(Workspace:FindFirstChild("Properties"):GetChildren()) do
+        if v.Owner.Value then
+            PlayerBasesDict[tostring(v.Owner.Value)] = v.OriginSquare.CFrame
+        end
+    end
+    return PlayerBasesDict
+end
+
+function initTeleportGUI()
+    local PlayerBases = getPlayerBases()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "TeleportGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = PlayerGui
+
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 180, 0, 100)
+    mainFrame.Position = UDim2.new(0, 200, 0, 20)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = screenGui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 12)
+    mainCorner.Parent = mainFrame
+
+    -- "Teleport to Spawn" Button
+    local teleportSpawnButton = Instance.new("TextButton")
+    teleportSpawnButton.Size = UDim2.new(1, -20, 0, 40)
+    teleportSpawnButton.Position = UDim2.new(0, 10, 0, 10)
+    teleportSpawnButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    teleportSpawnButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+    teleportSpawnButton.Font = Enum.Font.GothamBold
+    teleportSpawnButton.TextSize = 18
+    teleportSpawnButton.Text = "Teleport to Spawn"
+    teleportSpawnButton.AutoButtonColor = false
+    teleportSpawnButton.Parent = mainFrame
+
+    local teleportSpawnCorner = Instance.new("UICorner")
+    teleportSpawnCorner.CornerRadius = UDim.new(0, 8)
+    teleportSpawnCorner.Parent = teleportSpawnButton
+
+    teleportSpawnButton.MouseButton1Click:Connect(function()
+        HRP.CFrame = spawn.CFrame
+    end)
+
+    -- "TP to Player Base" Button
+    local tpPlayerBaseButton = Instance.new("TextButton")
+    tpPlayerBaseButton.Size = UDim2.new(1, -20, 0, 40)
+    tpPlayerBaseButton.Position = UDim2.new(0, 10, 0, 60)
+    tpPlayerBaseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    tpPlayerBaseButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+    tpPlayerBaseButton.Font = Enum.Font.GothamBold
+    tpPlayerBaseButton.TextSize = 18
+    tpPlayerBaseButton.Text = "TP to Player Base"
+    tpPlayerBaseButton.AutoButtonColor = false
+    tpPlayerBaseButton.Parent = mainFrame
+
+    local tpPlayerBaseCorner = Instance.new("UICorner")
+    tpPlayerBaseCorner.CornerRadius = UDim.new(0, 8)
+    tpPlayerBaseCorner.Parent = tpPlayerBaseButton
+
+    -- Frame to hold Player Base buttons (hidden at first)
+    local playerBaseFrame = Instance.new("Frame")
+    playerBaseFrame.Size = UDim2.new(0, 180, 0, 200)
+    playerBaseFrame.Position = UDim2.new(0, 200, 0, 140)
+    playerBaseFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    playerBaseFrame.Visible = false
+    playerBaseFrame.Parent = screenGui
+
+    local playerBaseCorner = Instance.new("UICorner")
+    playerBaseCorner.CornerRadius = UDim.new(0, 12)
+    playerBaseCorner.Parent = playerBaseFrame
+
+    tpPlayerBaseButton.MouseButton1Click:Connect(function()
+        playerBaseFrame.Visible = not playerBaseFrame.Visible
+
+        -- Clear old buttons
+        for _, child in ipairs(playerBaseFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 5)
+        layout.Parent = playerBaseFrame
+
+        -- Create a button for each player base
+        for playerName, baseCFrame in pairs(PlayerBases) do
+            local baseButton = Instance.new("TextButton")
+            baseButton.Size = UDim2.new(1, -10, 0, 40)
+            baseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            baseButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+            baseButton.Font = Enum.Font.GothamBold
+            baseButton.TextSize = 16
+            baseButton.Text = playerName
+            baseButton.Parent = playerBaseFrame
+            baseButton.AutoButtonColor = false
+
+            local baseButtonCorner = Instance.new("UICorner")
+            baseButtonCorner.CornerRadius = UDim.new(0, 8)
+            baseButtonCorner.Parent = baseButton
+
+            baseButton.MouseButton1Click:Connect(function()
+                HRP.CFrame = baseCFrame
+            end)
+        end
+    end)
+end
+
+
 local function initRegionGUI(treeList)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "RegionDetailGUI"
@@ -260,8 +377,7 @@ local function initRegionGUI(treeList)
         end)
 
         button.MouseButton1Click:Connect(function()
-            local OrgPlayerPos = HRP.CFrame
-            getTree(tree, OrgPlayerPos)
+            getTree(tree)
         end)
     end
 
@@ -279,7 +395,7 @@ local function initTreeGUI()
 
     -- Main Menu Frame
     local menuFrame = Instance.new("Frame")
-    menuFrame.Size = UDim2.new(0, 150, 0, 80)
+    menuFrame.Size = UDim2.new(0, 150, 0, 130)
     menuFrame.Position = UDim2.new(0, 20, 0, 20)
     menuFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     menuFrame.BorderSizePixel = 0
@@ -306,6 +422,32 @@ local function initTreeGUI()
     local buttonCorner = Instance.new("UICorner")
     buttonCorner.CornerRadius = UDim.new(0, 8)
     buttonCorner.Parent = grabTreesButton
+    
+        -- "Teleport" Button
+        local teleportButton = Instance.new("TextButton")
+        teleportButton.Size = UDim2.new(1, -20, 0, 40)
+        teleportButton.Position = UDim2.new(0, 10, 0, 70) -- below the Grab Trees button
+        teleportButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        teleportButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+        teleportButton.Font = Enum.Font.GothamBold
+        teleportButton.TextSize = 18
+        teleportButton.Text = "Teleport"
+        teleportButton.AutoButtonColor = false
+        teleportButton.Parent = menuFrame
+    
+        local teleportButtonCorner = Instance.new("UICorner")
+        teleportButtonCorner.CornerRadius = UDim.new(0, 8)
+        teleportButtonCorner.Parent = teleportButton
+
+    -- Button logic
+    teleportButton.MouseButton1Click:Connect(function()
+        local teleportGui = PlayerGui:FindFirstChild("TeleportGUI")
+        if teleportGui then
+            teleportGui:Destroy()
+        else
+            initTeleportGUI()
+        end
+    end)
 
     -- === Main Tree Browser GUI ===
     local mainFrame = Instance.new("Frame")
