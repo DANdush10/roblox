@@ -14,7 +14,8 @@ local chopRemote = ReplicatedStorage.Interaction.RemoteProxy
 local LooseTreeModel = nil
 -- "database" for axe stats
 local AxeClasses = ReplicatedStorage.AxeClasses
-
+--for the gui, i wanna update it so instead of tree regions(like biomes) its tree types
+local TreeDictionary = {}
 -- gets the axe's stats by using the moduleScript inside axeclasses
 local function getAxeStats(Name)
 
@@ -151,7 +152,7 @@ local function getTree(Tree)
 
 end
 
-local function initRegionGUI(Region)
+local function initRegionGUI(treeList)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "RegionDetailGUI"
     screenGui.ResetOnSpawn = false
@@ -207,7 +208,7 @@ local function initRegionGUI(Region)
     layout.Parent = scrollFrame
 
     -- For each tree in Region
-    for _, v in ipairs(Region:GetChildren()) do
+    for _, tree in ipairs(treeList) do
         local button = Instance.new("TextButton")
         button.Size = UDim2.new(1, 0, 0, 40)
         button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -231,7 +232,7 @@ local function initRegionGUI(Region)
         nameLabel.Font = Enum.Font.Arial
         nameLabel.TextSize = 16
         nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.Text = v.Name
+        nameLabel.Text = tree.TreeClass.Value
         nameLabel.Parent = button
 
         -- Label for Tree Size
@@ -243,7 +244,7 @@ local function initRegionGUI(Region)
         sizeLabel.Font = Enum.Font.Arial
         sizeLabel.TextSize = 16
         sizeLabel.TextXAlignment = Enum.TextXAlignment.Right
-        sizeLabel.Text = tostring(getTreeSize(v))
+        sizeLabel.Text = tostring(getTreeSize(tree))
         sizeLabel.Parent = button
 
         -- Hover effect
@@ -256,7 +257,7 @@ local function initRegionGUI(Region)
 
         button.MouseButton1Click:Connect(function()
             local OrgPlayerPos = HRP.CFrame
-            getTree(v, OrgPlayerPos)
+            getTree(tree, OrgPlayerPos)
         end)
     end
 
@@ -272,7 +273,7 @@ local function initTreeGUI()
     screenGui.ResetOnSpawn = false
     screenGui.Parent = PlayerGui
 
-    -- Main Menu Frame (always visible)
+    -- Main Menu Frame
     local menuFrame = Instance.new("Frame")
     menuFrame.Size = UDim2.new(0, 150, 0, 80)
     menuFrame.Position = UDim2.new(0, 20, 0, 20)
@@ -286,7 +287,7 @@ local function initTreeGUI()
     menuCorner.CornerRadius = UDim.new(0, 12)
     menuCorner.Parent = menuFrame
 
-    -- "Grab Trees" Button inside the menu
+    -- "Grab Trees" Button
     local grabTreesButton = Instance.new("TextButton")
     grabTreesButton.Size = UDim2.new(1, -20, 0, 40)
     grabTreesButton.Position = UDim2.new(0, 10, 0, 20)
@@ -302,8 +303,7 @@ local function initTreeGUI()
     buttonCorner.CornerRadius = UDim.new(0, 8)
     buttonCorner.Parent = grabTreesButton
 
-    -- === TREE REGION GUI (hidden at first) ===
-
+    -- === Main Tree Browser GUI ===
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 300, 0, 400)
     mainFrame.Position = UDim2.new(0, 200, 0, 100)
@@ -318,7 +318,7 @@ local function initTreeGUI()
     corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = mainFrame
 
-    -- ScrollFrame for region buttons
+    -- ScrollFrame for tree types
     local scrollFrame = Instance.new("ScrollingFrame")
     scrollFrame.Size = UDim2.new(1, -20, 1, -20)
     scrollFrame.Position = UDim2.new(0, 10, 0, 10)
@@ -334,71 +334,88 @@ local function initTreeGUI()
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = scrollFrame
 
-    -- Region buttons
-    for _, region in pairs(TreeRegions) do
-        local button = Instance.new("TextButton")
-        button.Size = UDim2.new(1, 0, 0, 40)
-        button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        button.TextColor3 = Color3.fromRGB(230, 230, 230)
-        button.Font = Enum.Font.Arial
-        button.TextSize = 16
-        button.Text = region.Name
-        button.AutoButtonColor = false
-        button.Parent = scrollFrame
+    -- === TreeType buttons ===
+    for treeType, treeList in pairs(TreeDictionary) do
+        local typeButton = Instance.new("TextButton")
+        typeButton.Size = UDim2.new(1, 0, 0, 40)
+        typeButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        typeButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+        typeButton.Font = Enum.Font.Arial
+        typeButton.TextSize = 16
+        typeButton.Text = tostring(treeType)
+        typeButton.AutoButtonColor = false
+        typeButton.Parent = scrollFrame
 
         local btnCorner = Instance.new("UICorner")
         btnCorner.CornerRadius = UDim.new(0, 10)
-        btnCorner.Parent = button
+        btnCorner.Parent = typeButton
 
-        button.MouseEnter:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        typeButton.MouseEnter:Connect(function()
+            typeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         end)
-        button.MouseLeave:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        typeButton.MouseLeave:Connect(function()
+            typeButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         end)
 
-        button.MouseButton1Click:Connect(function()
-            local Trees = region:GetChildren()
-            for _,v in pairs(Trees) do
-                v.Name = v.TreeClass.Value
-            end
-            initRegionGUI(region)   
+        -- === On click, show models inside this tree type ===
+        typeButton.MouseButton1Click:Connect(function()
+            initRegionGUI(treeList)
         end)
     end
 
-    -- Update canvas size after layout
     task.wait()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 
-    -- Grab Trees button opens the Tree GUI
+    -- Grab Trees button toggles mainFrame
     grabTreesButton.MouseButton1Click:Connect(function()
         mainFrame.Visible = not mainFrame.Visible
     end)
 end
 
-
-
-
-
 local function RenameTreeRegions()
 
-    for i,v in pairs(Workspace:GetChildren()) do
-        if v.Name == "TreeRegion" then
-            if v:FindFirstChild("Model") then
-                if v:FindFirstChild("Model"):FindFirstChild("TreeClass") then
-                    v.Name = v:FindFirstChild("Model"):FindFirstChild("TreeClass").Value
-                    table.insert(TreeRegions, v)
-            
+    for TreeType,_ in pairs(TreeDictionary) do
+        local Trees = {}
+        for _,Child in pairs(Workspace:GetChildren()) do
+            if Child.Name == "TreeRegion" then
+                for _,Tree in pairs(Child:GetChildren()) do
+                    local treeClass = Tree:FindFirstChild("TreeClass")
+                    if treeClass then
+                        if tostring(treeClass.Value) == TreeType then
+                            print("Inserting")
+                            table.insert(Trees, Tree)
+                        end
+                    end
                 end
-
             end
-
         end
-
+        print("added", tostring(#Trees), "trees to dictionary")
+        TreeDictionary[TreeType] = Trees
     end
-
     initTreeGUI()
 
 end
 
-RenameTreeRegions()
+local function getTreeTypes()
+    for _,TreeRegion in pairs(Workspace:GetChildren()) do
+        if TreeRegion.Name == "TreeRegion" then
+            if  #(TreeRegion:GetChildren()) ~= 0 then
+                for _,Tree in pairs(TreeRegion:GetChildren()) do
+                    local treeClass = Tree:FindFirstChild("TreeClass")
+                    if treeClass then
+                        if not table.find(TreeDictionary, tostring(treeClass.Value)) then
+                            TreeDictionary[tostring(treeClass.Value)] = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    for i,v in pairs(TreeDictionary) do
+        print(i,v)
+    end
+    print("Printed")
+    RenameTreeRegions()
+end
+
+getTreeTypes()
