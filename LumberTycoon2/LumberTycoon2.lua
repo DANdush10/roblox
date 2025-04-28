@@ -264,6 +264,25 @@ local function getShopType(item)
     return closestStore
 end
 
+local function grabItem(Item, Pos)
+    local looseItemARGS =
+    {
+        [1] = Item
+    }
+
+    HRP.CFrame = Pos
+    for i = 1,100 do
+        ClientIsDragging:FireServer(unpack(looseItemARGS))
+        task.wait()
+    end
+
+    task.wait(0.1)
+    for i = 1,60 do
+        Item.Main.Velocity = Vector3.new(0, 0, 0)
+        Item:PivotTo(Pos+Vector3.new(0,5,0))
+        task.wait() 
+    end
+end
 
 local function buyItem(Item)
     local looseItem = nil
@@ -277,65 +296,47 @@ local function buyItem(Item)
     {
         [1] = Item
     }
-    for i = 1,100 do
+    for i = 1,30 do
         ClientIsDragging:FireServer(unpack(args))
         task.wait()
     end
 
-    task.wait(0.1)
+    task.wait(0.05)
     for i = 1,60 do
         Item.Main.Velocity = Vector3.new(0, 0, 0)
         Item:PivotTo(Counter.CFrame+Vector3.new(0,2,0))
         task.wait() 
     end
     HRP.CFrame = NPC.HumanoidRootPart.CFrame
-    for j = 7,15 do
-        for i = 1,3 do
-            print("Running for j:", j, " and i:", i) 
-            local args2 = 
-            {
-                {
-                    ["Character"] = NPC,
-                    ["Name"] = tostring(NPC.Name),
-                    ["ID"] = j,
-                    ["Dialog"] = NPC.Dialog
-                },
-                
-                steps[i]
-            }
-            print("Arguments:", args2)
-            PlayerChatted:InvokeServer(unpack(args2))
-            task.wait(0.2)
-            local connection
-            connection = Workspace.PlayerModels.ChildAdded:Connect(function(child)
-                if not looseItem and tostring(child:WaitForChild("Owner").Value) == tostring(Player.Name) then
-                    print("got item")
-                        looseItem = child
-                        print(child.Name)
-                        connection:Disconnect()
-                end
-            end)
-        end
-    end
-    
-    local looseItemARGS =
-    {
-        [1] = looseItem
-    }
-
-    HRP.CFrame = OrgPlayerPos
-    for i = 1,100 do
-        ClientIsDragging:FireServer(unpack(looseItemARGS))
-        task.wait()
-    end
-
     task.wait(0.1)
-    for i = 1,60 do
-        looseItem.Main.Velocity = Vector3.new(0, 0, 0)
-        looseItem:PivotTo(OrgPlayerPos+Vector3.new(0,5,0))
-        task.wait() 
+    for j = 7,15 do
+        local args2 = 
+        {
+            {
+                ["Character"] = NPC,
+                ["Name"] = tostring(NPC.Name),
+                ["ID"] = j,
+                ["Dialog"] = NPC.Dialog
+            },
+            
+            steps[2]
+        }
+        PlayerChatted:InvokeServer(unpack(args2))
+        task.wait(0.1)
+        local connection
+        connection = Workspace.PlayerModels.ChildAdded:Connect(function(child)
+            if not looseItem and tostring(child:WaitForChild("Owner").Value) == tostring(Player.Name) then
+                print("got item")
+                    looseItem = child
+                    print(child.Name)
+                    grabItem(looseItem, OrgPlayerPos)
+                    connection:Disconnect()
+            end
+        end)
+    
     end
 end
+
 
 
 local function getTree(Tree)
