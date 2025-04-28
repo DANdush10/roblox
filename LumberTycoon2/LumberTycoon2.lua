@@ -17,16 +17,40 @@ local AxeClasses = ReplicatedStorage.AxeClasses
 local TreeDictionary = {}
 -- spawn location reference
 local spawn = Workspace:FindFirstChild("Region_Main"):FindFirstChild("SpawnLocation")
---Thom npc from shop
-local Thom = Workspace.Stores.WoodRUs.Thom
+--store positions for reference:
+local StoresPositions = {
+    Logic = {
+        Counter = Workspace.Stores.LogicStore.Counter,
+        NPC = Workspace.Stores.LogicStore.Lincoln
+    },
+    WoodRUs = {
+        Counter = Workspace.Stores.WoodRUs.Counter,
+        NPC = Workspace.Stores.WoodRUs.Thom
+    },
+    Art = {
+        Counter = Workspace.Stores.FineArt.Counter,
+        NPC = Workspace.Stores.FineArt.Timothy
+    },
+    Shack = {
+        Counter = Workspace.Stores.ShackShop.Counter,
+        NPC = Workspace.Stores.ShackShop.Bob
+    },
+    Car = {
+        Counter = Workspace.Stores.CarStore.Counter,
+        NPC = Workspace.Stores.CarStore.Jenny
+    },
+    Furniture = {
+        Counter = Workspace.Stores.FurnitureStore.Counter,
+        NPC = Workspace.Stores.FurnitureStore.Corey
+    }
+}
+
 --steps when buying items:
 local steps = {
     [1] = "Initiate",
     [2] = "ConfirmPurchase",
     [3] = "EndChat"
 }
--- counter on woodrus
-local Counter = Workspace.Stores.WoodRUs.Counter
 -- gets the axe's stats by using the moduleScript inside axeclasses
 local function getAxeStats(Name)
 
@@ -55,10 +79,6 @@ local function isMyTree(TreeType, child) -- ?
         return true
 
     else 
-        --debug
-        print(tostring(child:WaitForChild("Owner").Value), Player.Name)
-        print(#(tostring(child:WaitForChild("Owner").Value)), #(Player.Name))
-
         return false
     end
 
@@ -181,8 +201,6 @@ local function chopTree(Tree, OrgPlayerPos)
             Tool.Parent = Player.Backpack
             grabTree(LooseTreeModel, OrgPlayerPos)
             connection:Disconnect()
-        else
-            print("Not My tree :(")
         end
     end)
     repeat
@@ -203,13 +221,6 @@ local function getShopItems()
             end
         end
     end
-    local count = 0
-    for _ in pairs(shopItems) do
-        count += 1
-    end
-
-    print("Added", count, "items to dictionary")
-
     return shopItems
 end
 
@@ -232,8 +243,35 @@ end
 game:GetService("ReplicatedStorage").NPCDialog.PlayerChatted:InvokeServer(unpack(args))
 --]]
 
+local function getShopType(item)
+    local closestStore = nil
+    local closestDistance = math.huge  
+
+    local itemCFrame = item:FindFirstChild("Main").CFrame
+
+    for storeName, storeData in pairs(StoresPositions) do
+        if storeData.Counter then
+            local storeCFrame = storeData.Counter.CFrame
+            local distance = (itemCFrame.Position - storeCFrame.Position).Magnitude
+            
+            if distance < closestDistance then
+                closestDistance = distance
+                closestStore = storeName  
+            end
+        end
+    end
+
+    return closestStore
+end
+
+
 local function buyItem(Item)
+    local looseItem = nil
+    local OrgPlayerPos = HRP.CFrame
     HRP.CFrame = Item.Main.CFrame
+    local Store = getShopType(Item)
+    local Counter = StoresPositions[Store].Counter
+    local NPC = StoresPositions[Store].NPC
     -- the logic for grab tree
     local args =
     {
@@ -250,24 +288,52 @@ local function buyItem(Item)
         Item:PivotTo(Counter.CFrame+Vector3.new(0,2,0))
         task.wait() 
     end
-    HRP.CFrame = Thom.HumanoidRootPart.CFrame
-    for i = 1,3 do
-        for j = 0,1 do
+    HRP.CFrame = NPC.HumanoidRootPart.CFrame
+    for j = 7,15 do
+        for i = 1,3 do
+            print("Running for j:", j, " and i:", i) 
             local args2 = 
             {
                 {
-                    ["Character"] = Thom,
-                    ["Name"] = "Thom",
-                    ["ID"] = (j == 1) and 10 or 7,
-                    ["Dialog"] = Thom.Dialog
+                    ["Character"] = NPC,
+                    ["Name"] = tostring(NPC.Name),
+                    ["ID"] = j,
+                    ["Dialog"] = NPC.Dialog
                 },
                 
                 steps[i]
-                
             }
-        PlayerChatted:InvokeServer(unpack(args2))
-        task.wait(2)
+            print("Arguments:", args2)
+            PlayerChatted:InvokeServer(unpack(args2))
+            task.wait(0.2)
+            local connection
+            connection = Workspace.PlayerModels.ChildAdded:Connect(function(child)
+                if not looseItem and tostring(child:WaitForChild("Owner").Value) == tostring(Player.Name) then
+                    print("got item")
+                        looseItem = child
+                        print(child.Name)
+                        connection:Disconnect()
+                end
+            end)
         end
+    end
+    
+    local looseItemARGS =
+    {
+        [1] = looseItem
+    }
+
+    HRP.CFrame = OrgPlayerPos
+    for i = 1,100 do
+        ClientIsDragging:FireServer(unpack(looseItemARGS))
+        task.wait()
+    end
+
+    task.wait(0.1)
+    for i = 1,60 do
+        looseItem.Main.Velocity = Vector3.new(0, 0, 0)
+        looseItem:PivotTo(OrgPlayerPos+Vector3.new(0,5,0))
+        task.wait() 
     end
 end
 
@@ -366,7 +432,7 @@ local function initTeleportGUI()
 
     -- Main Frame
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 180, 0, 110)
+    mainFrame.Size = UDim2.new(0, 180, 0, 160)
     mainFrame.Position = UDim2.new(0, 200, 0, 20)
     mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     mainFrame.BorderSizePixel = 0
@@ -414,6 +480,22 @@ local function initTeleportGUI()
     tpPlayerBaseCorner.CornerRadius = UDim.new(0, 8)
     tpPlayerBaseCorner.Parent = tpPlayerBaseButton
 
+    -- "TP to Player" Button
+    local tpPlayerButton = Instance.new("TextButton")
+    tpPlayerButton.Size = UDim2.new(1, -20, 0, 40)
+    tpPlayerButton.Position = UDim2.new(0, 10, 0, 110) -- 60 + 40 + 10 (padding) = 110
+    tpPlayerButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    tpPlayerButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+    tpPlayerButton.Font = Enum.Font.GothamBold
+    tpPlayerButton.TextSize = 18
+    tpPlayerButton.Text = "TP to Player"
+    tpPlayerButton.AutoButtonColor = false
+    tpPlayerButton.Parent = mainFrame
+
+    local tpPlayerCorner = Instance.new("UICorner")
+    tpPlayerCorner.CornerRadius = UDim.new(0, 8)
+    tpPlayerCorner.Parent = tpPlayerButton
+
     -- Frame to hold Player Base buttons (hidden at first)
     local playerBaseFrame = Instance.new("Frame")
     playerBaseFrame.Size = UDim2.new(0, 180, 0, 200)
@@ -426,6 +508,55 @@ local function initTeleportGUI()
     playerBaseCorner.CornerRadius = UDim.new(0, 12)
     playerBaseCorner.Parent = playerBaseFrame
 
+    local playerListFrame -- forward declaration (so we can destroy it)
+
+    tpPlayerButton.MouseButton1Click:Connect(function()
+        -- Destroy previous PlayerListFrame if it exists
+        if playerListFrame then
+            playerListFrame:Destroy()
+            playerListFrame = nil
+            return -- Exit early if just clicked to close it
+        end
+    
+        -- Create new PlayerListFrame
+        playerListFrame = Instance.new("Frame")
+        playerListFrame.Size = UDim2.new(0, 200, 0, 300) -- width, height
+        playerListFrame.Position = UDim2.new(0, 250, 0, 60) -- a bit to the right of original buttons
+        playerListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        playerListFrame.Parent = mainFrame
+    
+        local playerListCorner = Instance.new("UICorner")
+        playerListCorner.CornerRadius = UDim.new(0, 8)
+        playerListCorner.Parent = playerListFrame
+    
+        local yOffset = 10
+    
+        for _, player in pairs(Players:GetPlayers()) do
+            local playerButton = Instance.new("TextButton")
+            playerButton.Name = "PlayerButton"
+            playerButton.Size = UDim2.new(1, -20, 0, 40)
+            playerButton.Position = UDim2.new(0, 10, 0, yOffset)
+            playerButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            playerButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+            playerButton.Font = Enum.Font.GothamBold
+            playerButton.TextSize = 18
+            playerButton.Text = player.Name
+            playerButton.AutoButtonColor = false
+            playerButton.Parent = playerListFrame
+    
+            local playerCorner = Instance.new("UICorner")
+            playerCorner.CornerRadius = UDim.new(0, 8)
+            playerCorner.Parent = playerButton
+    
+            playerButton.MouseButton1Click:Connect(function()
+                HRP.CFrame = player.Character.HumanoidRootPart.CFrame
+            end)
+    
+            yOffset = yOffset + 50
+        end
+    end)
+    
+    
     tpPlayerBaseButton.MouseButton1Click:Connect(function()
         playerBaseFrame.Visible = not playerBaseFrame.Visible
 
