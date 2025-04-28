@@ -1,2 +1,2 @@
-# copy this loadstring for easy use
+--copy this loadstring for easy use
 loadstring(game:HttpGet("https://raw.githubusercontent.com/DANdush10/roblox/refs/heads/main/LumberTycoon2/LumberTycoon2.lua"))()
