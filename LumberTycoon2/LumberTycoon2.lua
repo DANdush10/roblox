@@ -285,6 +285,7 @@ local function grabItem(Item, Pos)
 end
 
 local function buyItem(Item)
+    local gotItem = false
     local looseItem = nil
     local OrgPlayerPos = HRP.CFrame
     HRP.CFrame = Item.Main.CFrame
@@ -326,7 +327,8 @@ local function buyItem(Item)
         local connection
         connection = Workspace.PlayerModels.ChildAdded:Connect(function(child)
             if not looseItem and tostring(child:WaitForChild("Owner").Value) == tostring(Player.Name) then
-                print("got item")
+                    print("got item")
+                    gotItem = true
                     looseItem = child
                     print(child.Name)
                     grabItem(looseItem, OrgPlayerPos)
@@ -334,6 +336,11 @@ local function buyItem(Item)
             end
         end)
     
+    end
+    -- some items dont have a playerModel and just remain so in case its an item like that, you just grab it
+    if not gotItem then
+        print("couldnt find the item model inside playerModels, instead just trying to grab the item itself")
+    grabItem(Item, OrgPlayerPos)
     end
 end
 
@@ -676,7 +683,13 @@ local function initRegionGUI(treeList)
         nameLabel.Font = Enum.Font.Arial
         nameLabel.TextSize = 16
         nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-        nameLabel.Text = tree.TreeClass.Value
+        local TreeClass = tree:FindFirstChild("TreeClass")
+        if TreeClass then
+            nameLabel.Text = TreeClass.Value
+        else
+            nameLabel.Text = "Unknown"
+            print("TreeClass value not found (function initregiongui")
+        end
         nameLabel.Parent = button
 
         -- Label for Tree Size
